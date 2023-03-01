@@ -15,7 +15,9 @@ int main(void)
 	char msg[50];
 
 	while(1){
-		//HAL_UART_Transmit(&huart2, ".", 1, HAL_MAX_DELAY);
+		//HAL_UART_Transmit(&huart2, ".", 1, HAL_MAX_DELAY); //UART communication tester
+		
+		//all outcome can be true at same time while pressing all of them, if not working, erase the & circle so it 100% work, but only one outcome can be true.
 		if((ps4.button & CIRCLE) == CIRCLE )
 		{
 			HAL_UART_Transmit(&huart2,"CIRCLE", 6, 100);
