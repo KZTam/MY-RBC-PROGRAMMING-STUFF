@@ -1,0 +1,12 @@
+		if(ps4.button == CIRCLE)
+		{
+			SR.cast[1].Byte |= BDC1.dir1;
+			HAL_Delay(200);
+			SR.cast[1].Byte &= ~(BDC1.dir1);
+			HAL_Delay(200);
+		}
+		else if(ps4.button == SQUARE)
+		{
+			SR.cast[1].Byte ^= BDC1.dir1;
+			HAL_Delay(200);
+		}
