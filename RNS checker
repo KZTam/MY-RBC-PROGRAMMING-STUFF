@@ -1,0 +1,24 @@
+		//omni wheel control using ps4
+    //NOTE: four omni wheels pwm may change due to motor place direction, so change the value by trying, then test the robot after finding correct orientation.
+		if(ps4.button){
+		if(ps4.button == UP )
+		{
+			RNSPDC(2000,2000,-2000,2000,&rns);
+		}
+		if(ps4.button == DOWN )
+		{
+			RNSPDC(-2000,-2000,2000,-2000,&rns);
+		}
+		if(ps4.button == LEFT )
+		{
+			RNSPDC(-2000,2000,-2000,-2000,&rns);
+		}
+		if(ps4.button == RIGHT )
+		{
+			RNSPDC(2000,-2000,2000,2000,&rns);
+		}
+		if(ps4.button == SQUARE) //rotate
+		{
+			RNSPDC(-2000,2000,2000,2000,&rns);
+		}
+		}
