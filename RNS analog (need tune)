@@ -1,0 +1,12 @@
+		MODN(&Modn);
+		if(ps4.joyL_y||ps4.joyL_x||ps4.joyL_2||ps4.joyR_2)
+		{
+			xr = -ps4.joyL_x;
+			yr = ps4.joyL_y;
+			wr = ps4.joyL_2 - ps4.joyR_2;
+			RNSPDC(v1 * 3000,v2 * 3000 , v3 * -3000, v4 * 3000, &rns);
+		}
+		else
+		{
+			RNSPDC(0,0,0,0,&rns);
+		}
