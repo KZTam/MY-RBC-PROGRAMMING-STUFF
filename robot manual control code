@@ -1,0 +1,20 @@
+		while(1){
+    //analog manual control
+		MODN(&Modn);
+		if(ps4.joyL_y||ps4.joyL_x||ps4.joyL_2||ps4.joyR_2)
+		{
+			xr = -ps4.joyL_x;
+			yr = ps4.joyL_y;
+			wr = ps4.joyL_2 - ps4.joyR_2;
+			RNSVelocity(v1,v2,v3,v4,&rns);
+		}
+		else
+		{
+			RNSStop(&rns); //dont use RNSVelocity(0,0,0,0,&rns);
+		}
+
+		//data for tuning
+		RNSEnquire(RNS_VEL_BOTH,&rns);
+		sprintf(msg,"%f %f %f %f\n",rns.RNS_data.common_buffer[0].data,rns.RNS_data.common_buffer[1].data,rns.RNS_data.common_buffer[2].data,rns.RNS_data.common_buffer[3].data);
+		HAL_UART_Transmit(&huart2, msg, strlen(msg), 100);
+    }
