@@ -1,0 +1,12 @@
+/*--------calculate velocity for RNS--------*/
+		
+		//velocity based on robot perspective
+//		MODN(&Modn);
+
+		//velocity based on field perspective (robot faced on the direction of field you desired,before game start)
+		v1 = xr*(-sin(rad))+yr*(-cos(rad))+wr*2.0;
+		v2 = xr*(cos(rad))+yr*(-sin(rad))-wr*2.0;
+		v3 = xr*(cos(rad))+yr*(-sin(rad))+wr*2.0;
+		v4 = xr*(-sin(rad))+yr*(-cos(rad))-wr*2.0;
+
+/*-------end of calculate velocity for RNS-------*/
