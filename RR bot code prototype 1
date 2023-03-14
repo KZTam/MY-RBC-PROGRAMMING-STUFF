@@ -1,0 +1,330 @@
+
+
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+	SERVO_t SERVO1,SERVO2,SERVO3; //lifting servo1 & 2, shooting servo 3
+	char msg[50], msg2[50]; //UART message from mainboard, shooter degree
+	float rad, a = 1.00; // radian, velocity factor
+//	float co, prev_IMU; //correction, previous IMU data
+	int pulse1 = 2500, pulse2 = 500, pulse3 = 2700, pulse4 = 500; //servo pulse
+	int gripper_flag = 0, reload_flag = 0; //flag
+/**
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void)
+{
+	set();
+
+	PWMTimeBaseInit(&htim12, 19999, 83);
+
+	ServoxInit(&SERVO1,&htim1,GPIOE,GPIO_PIN_13,TIM_CHANNEL_3); //digital IP2 (left lifting servo)
+	ServoxInit(&SERVO2,&htim1,GPIOE,GPIO_PIN_14,TIM_CHANNEL_4); //digital IP3 (right lifting servo)
+	ServoxInit(&SERVO3,&htim12,GPIOB,GPIO_PIN_14,TIM_CHANNEL_1); //digital IP5 (shooting andjust servo)
+
+	while(1){
+/*-------robot data-------*/
+
+		//four wheel velocity
+//		RNSEnquire(RNS_VEL_BOTH,&rns);
+//		sprintf(msg,"%f %f %f %f\n",rns.RNS_data.common_buffer[0].data,rns.RNS_data.common_buffer[1].data,rns.RNS_data.common_buffer[2].data,rns.RNS_data.common_buffer[3].data);
+//		HAL_UART_Transmit(&huart2, msg, strlen(msg), 100);
+
+		//IMU (MAKE SURE UART2 of RNS board connect to IMU board)
+		RNSEnquire(RNS_ANGLE,&rns);
+//		sprintf(msg,"IMU = %f\n",rns.RNS_data.common_buffer[0].data);
+		rad = (rns.RNS_data.common_buffer[0].data + 45)*3.1416/180;
+//		HAL_UART_Transmit(&huart2, msg, strlen(msg), 100);
+
+		//xyz coordinate
+//		RNSEnquire(RNS_COORDINATE_X_Y_Z,&rns);
+//		sprintf(msg,"x=%f,y=%f,z=%f\n",rns.RNS_data.common_buffer[0].data,rns.RNS_data.common_buffer[1].data,rns.RNS_data.common_buffer[2].data);
+//		HAL_UART_Transmit(&huart2,msg,strlen(msg),100);
+
+/*-------end of robot data-------*/
+
+/*--------calculate velocity for RNS--------*/
+
+		//velocity based on robot perspective
+//		MODN(&Modn);
+
+	/*  velocity based on field perspective (robot faced on the direction of field you desired,before game start)
+	*	NOTE: This algorithm cannot be used when RNSEnquire is used to get other data unless RNS_ANGLE is used.
+	*/
+		v1 = xr*(-sin(rad))+yr*(-cos(rad))+(wr)*2.0;
+		v2 = xr*(cos(rad))+yr*(-sin(rad))-(wr)*2.0;
+		v3 = xr*(cos(rad))+yr*(-sin(rad))+(wr)*2.0;
+		v4 = xr*(-sin(rad))+yr*(-cos(rad))-(wr)*2.0;
+
+
+/*-------end of calculate velocity for RNS-------*/
+
+/*-------RNS-------*/
+		//RNS_Motor_Check();
+		movement();
+/*-------end of RNS-------*/
+
+/*-------servo tuning-------*/
+//	actuator_check_pulse();
+/*-------end of servo tuning-------*/
+
+/*-------shooting mechanism-------*/
+		adjust();
+		shoot();
+/*-------end of shooting mechanism-------*/
+
+/*-------lifting mechanism-------*/
+		reload();
+/*-------end of lifting mechanism-------*/
+
+/*-------gripper-------*/
+		gripper();
+/*-------end of gripper--------*/
+
+/*-------IMU data storage-------*/
+//		prev_IMU = rns.RNS_data.common_buffer[0].data;
+/*-------end of IMU data storage-------*/
+	}
+}
+
+void RNS_Motor_Check(void)
+{
+	//omni wheel direction check
+//		if(ps4.button == TRIANGLE )
+//		{
+//			RNSVelocity(0.5,0,0,0,&rns);
+//		}
+//		if(ps4.button == CIRCLE )
+//		{
+//			RNSVelocity(0,0.5,0,0,&rns);
+//		}
+//		else if(ps4.button == CROSS )
+//		{
+//			RNSVelocity(0,0,0.5,0,&rns);
+//		}
+//		else if(ps4.button == SQUARE )
+//		{
+//			RNSVelocity(0,0,0,0.5,&rns);
+//		}
+
+	//digital RNS manual control
+//		if(ps4.button == UP)
+//		{
+//			RNSVelocity(0.5,0.5,0.5,0.5,&rns);
+//		}
+//		if(ps4.button == DOWN)
+//		{
+//			RNSVelocity(-0.5,-0.5,-0.5,-0.5,&rns);
+//		}
+//		if(ps4.button == LEFT)
+//		{
+//			RNSVelocity(-0.5,0.5,0.5,-0.5,&rns);
+//		}
+//		if(ps4.button == RIGHT)
+//		{
+//			RNSVelocity(0.5,-0.5,-0.5,0.5,&rns);
+//		}	
+}
+
+void movement(void)
+{
+	//speed control
+	if(ps4.button == LEFT){
+		a += 1.0;
+		sprintf(msg,"velocity factor = %.2f\n",a);
+		HAL_UART_Transmit(&huart2,msg,strlen(msg),100);
+		while(ps4.button == LEFT);
+	}
+	if(ps4.button == RIGHT){
+		a -= 1.0;
+		sprintf(msg,"velocity factor = %.2f\n",a);
+		HAL_UART_Transmit(&huart2,msg,strlen(msg),100);
+		while(ps4.button == RIGHT);
+	}
+	if(a<=0) a = 1;
+
+	//analog control (left joystick, L2, R2)
+	if(ps4.joyL_y||ps4.joyL_x||ps4.joyL_2||ps4.joyR_2)
+	{
+		xr = -ps4.joyL_x;
+		yr = ps4.joyL_y;
+		wr = 0.5*ps4.joyR_2 - 0.5*ps4.joyL_2;
+		RNSVelocity(a*v1,a*v2,a*v3,a*v4,&rns);
+	}
+	else if(!ps4.joyL_y&&!ps4.joyL_x&&!ps4.joyL_2&&!ps4.joyR_2)
+	{
+		RNSStop(&rns);
+	}
+}
+
+void actuator_check_pulse(void)
+{
+	//lifing mech. (SERVO1 -> IP2 & SERVO2 -> IP3)
+//		if(ps4.button == CIRCLE)  //lift down check
+//		{
+//			pulse1 -= 100;
+//			pulse2 += 100;
+//			while(ps4.button == CIRCLE);
+//		}
+//		else if(ps4.button == CROSS) //lift up check
+//		{
+//			pulse1 += 100;
+//			pulse2 -= 100;
+//			while(ps4.button == CROSS);
+//		}
+//		ServoSetPulse(&SERVO1,pulse1);
+//		ServoSetPulse(&SERVO2,pulse2);
+//
+//		sprintf(msg,"servo1 = %d pwm, servo2 = %d pwm\n",pulse1,pulse2);
+//		HAL_UART_Transmit(&huart2,(uint8_t *)msg,strlen(msg),100);
+
+	//gripper (SERVO4 -> BDC4)
+//		if(ps4.button == CIRCLE)  //close check
+//		{
+//			pulse4 += 100;
+//			while(ps4.button == CIRCLE);
+//		}
+//		else if(ps4.button == CROSS) //open check
+//		{
+//			pulse4 -= 100;
+//			while(ps4.button == CROSS);
+//		}
+//		WriteBDC(&BDC4,pulse4);
+//
+//		sprintf(msg,"gripper servo4 pulse= %d\n",pulse4);
+//		HAL_UART_Transmit(&huart2,msg,strlen(msg),100);
+
+	//shooting mech. (SERVO3 -> IP5)
+	//below code can be used if the shooting angle works well... (lets say if robot mech. not fuxxed up then)
+	//just change input to UP and DOWN, and remove 'while' if can (optional)
+
+//		if(ps4.button == CIRCLE)  //shooter goes up
+//		{
+//			pulse3 -= 100;
+//			while(ps4.button == CIRCLE);
+//		}
+//		else if(ps4.button == CROSS) //shotter goes down
+//		{
+//			pulse3 += 100;
+//			while(ps4.button == CROSS);
+//		}
+//		ServoSetPulse(&SERVO3,pulse3);
+//
+//		sprintf(msg2,"shooter = %d\n",pulse3);  //ltr convert this to angle evelated
+//		HAL_UART_Transmit(&huart2,msg2,strlen(msg2),100);
+}
+
+void gripper(void) //control gripper manually
+{
+	if(ps4.button == CIRCLE&&gripper_flag == 0)
+	{
+		WriteBDC(&BDC4,0000); //closed (pulse not yet determined)
+		gripper_flag = 1;
+	}
+	else if(ps4.button != CIRCLE&&gripper_flag == 1)
+	{
+		gripper_flag = 2;
+	}
+	else if(ps4.button == CIRCLE&&gripper_flag == 2)
+	{
+		WriteBDC(&BDC4,600); //opened (pulse not yet determined)
+		gripper_flag = 3;
+	}
+	else if(ps4.button != CIRCLE&&gripper_flag == 3)
+	{
+		gripper_flag = 0;
+	}
+}
+
+void adjust(void)
+{
+	if(ps4.button == UP)
+	{
+		pulse3 -= 10;
+	}
+	else if(ps4.button == DOWN)
+	{
+		pulse3 += 10;
+	}
+	ServoSetPulse(&SERVO3,pulse3);
+
+	sprintf(msg2,"shooter = %d\n",2700 - pulse3);  //ltr convert this to angle evelated
+	HAL_UART_Transmit(&huart2,msg2,strlen(msg2),100);
+}
+
+void shoot(void)
+{
+	if(ps4.button == CROSS)
+	{
+		WriteBDC(&BDC5,0000); //SHOOT (pulse not yet determined)
+		HAL_Delay(1000); //can decrease if motor is idle after shooting, to save time
+		WriteBDC(&BDC5,0000); //pull back (pulse not yet determined)
+		while(ps4.button == CROSS);
+	}
+}
+
+void reload(void)
+{
+	if(ps4.button == SQUARE && reload_flag == 0) //lift down the gripper (pulse not yet determined)
+	{
+		ServoSetPulse(&SERVO1,0000);
+		ServoSetPulse(&SERVO2,0000);
+		HAL_Delay(500);
+		reload_flag = 1;
+	}
+	else if(ps4.button != SQUARE && reload_flag == 1)
+	{
+		reload_flag = 2;
+	}
+	else if(ps4.button == SQUARE && reload_flag == 2) //lift up the gripper with ring (pulse not yet determined)
+	{
+		WriteBDC(&BDC4,0000);
+		HAL_Delay(500);
+		ServoSetPulse(&SERVO1,0000);
+		ServoSetPulse(&SERVO2,0000);
+		HAL_Delay(500);
+		WriteBDC(&BDC4,600);
+		reload_flag = 3;
+	}
+	else if(ps4.button != SQUARE && reload_flag == 3)
+	{
+		reload_flag = 0;
+	}
+}
+
+void TIM6_DAC_IRQHandler(void)
+{
+	led1 = !led1;
+	HAL_TIM_IRQHandler(&htim6);
+}
+
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ */
+void Error_Handler(void)
+{
+
+
+}
+#ifdef  USE_FULL_ASSERT
+/**
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+	/* USER CODE BEGIN 6 */
+	/* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	/* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+
+
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
